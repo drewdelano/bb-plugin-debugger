@@ -1,7 +1,13 @@
 {
   "name": "bb-plugin-debugger",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Give Cloudroom agents a real step-through debugger.",
+  "keywords": [
+    "bb-plugin",
+    "debugger",
+    "debugging",
+    "developer-tools"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -22,6 +28,13 @@
     "host": "./host.ts",
     "skills": [
       "skills"
+    ]
+  },
+  "bbMarketplace": {
+    "category": "code-and-reviews",
+    "secondaryCategories": [
+      "plugin-development",
+      "command-line"
     ]
   },
   "scripts": {
