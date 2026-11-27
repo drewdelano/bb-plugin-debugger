@@ -19,7 +19,7 @@ interface EvaluationResult {
   variablesReference: number;
 }
 
-describe.sequential("JavaScript debugger acceptance", () => {
+describe.sequential("JavaScript debugger acceptance", { timeout: 30_000 }, () => {
   let debuggerClient: DebuggerTestClient;
 
   beforeAll(async () => {

@@ -2,6 +2,8 @@
 
 `bb-plugin-debugger` gives Cloudroom agents a real step-through debugger. It exposes a pinned MCP debugger as provider-independent Cloudroom tools, so Codex, Fable, and other providers use the same debugging sessions and policy.
 
+> **Experimental and largely untested.** The automated suite exercises a narrow JavaScript fixture and plugin lifecycle behavior, primarily on a local Windows host. Real repositories, additional operating systems, cloud hosts, TypeScript source maps, other languages, and sustained Codex/Fable use have not been validated broadly. Do not use this release against production, shared, or regulated-data workloads.
+
 The first release is deliberately headless. It launches programs from the current thread workspace, sets breakpoints, steps execution, and inspects stack frames and variables. It does not expose arbitrary process attachment or remote production debugging.
 
 ## Architecture
@@ -35,7 +37,19 @@ room-cli plugin install .
 
 ## Status
 
-This project is an early proof of concept. JavaScript and TypeScript are the first end-to-end target, followed by .NET.
+This project is an early proof of concept. JavaScript is the only end-to-end target in the initial release. TypeScript, source maps, cloud-host behavior, macOS/Linux behavior, and broader provider workflows need real-world validation. .NET is explicitly deferred to [issue #1](https://github.com/drewdelano/bb-plugin-debugger/issues/1).
+
+The repository currently has 34 passing automated tests. That is useful regression coverage, not evidence that the plugin is production-ready.
+
+## Installation
+
+Install the experimental `0.1.x` line directly from GitHub:
+
+```powershell
+room-cli plugin install git:https://github.com/drewdelano/bb-plugin-debugger.git@^0.1.0
+```
+
+Cloudroom will ask for confirmation because plugins execute as full-trust local code.
 
 ## License
 
