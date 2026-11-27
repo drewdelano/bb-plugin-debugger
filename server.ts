@@ -1,11 +1,8 @@
-import { createRequire } from "node:module";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, type DebuggerTarget } from "./contract.js";
 import { validateDebuggerArguments } from "./lib/path-policy.js";
-
-const require = createRequire(import.meta.url);
-const enginePath = require.resolve("@debugmcp/mcp-debugger/dist/cli");
+import { renderResult } from "./lib/render-result.js";
 
 const supportedTools = [
   "clear_breakpoints",
@@ -66,24 +63,9 @@ export default function plugin(bb: BbPluginApi) {
       target: {
         threadId,
         workspacePath: environment.path,
-        enginePath,
+        enginePath: null,
       },
     };
-  }
-
-  function renderResult(value: unknown): string {
-    const serialized = JSON.stringify(value, null, 2);
-    const limit = 256 * 1024;
-    if (serialized.length <= limit) return serialized;
-    return JSON.stringify(
-      {
-        truncated: true,
-        originalCharacters: serialized.length,
-        preview: serialized.slice(0, limit),
-      },
-      null,
-      2,
-    );
   }
 
   bb.agents.registerTool({

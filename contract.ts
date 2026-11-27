@@ -16,7 +16,7 @@ const target = z
   .object({
     threadId: z.string().min(1),
     workspacePath: z.string().min(1),
-    enginePath: z.string().min(1),
+    enginePath: z.string().min(1).nullable(),
   })
   .strict();
 

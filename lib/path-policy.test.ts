@@ -38,4 +38,27 @@ describe("workspace path policy", () => {
       }),
     ).not.toThrow();
   });
+
+  it("rejects a Windows sibling whose name starts with the workspace name", () => {
+    const windowsWorkspace = "C:\\work\\repo";
+    expect(() =>
+      requirePathInsideWorkspace(windowsWorkspace, "C:\\work\\repo-private\\secret.ts"),
+    ).toThrow("Path must stay inside the workspace");
+  });
+
+  it("accepts Windows paths with different drive-letter and directory casing", () => {
+    expect(
+      requirePathInsideWorkspace("C:\\Work\\Repo", "c:\\work\\repo\\src\\main.ts"),
+    ).toBe("c:\\work\\repo\\src\\main.ts");
+  });
+
+  it("rejects relative traversal hidden in nested launch arguments", () => {
+    expect(() =>
+      validateDebuggerArguments(workspace, "start_debugging", {
+        dapLaunchArgs: {
+          cwd: "..\\outside",
+        },
+      }),
+    ).toThrow("Path must stay inside the workspace");
+  });
 });

@@ -25,7 +25,8 @@
     ]
   },
   "scripts": {
-    "build": "room-cli plugin build .",
+    "build": "node scripts/vendor-engine.mjs && room-cli plugin build .",
+    "pretest": "npm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

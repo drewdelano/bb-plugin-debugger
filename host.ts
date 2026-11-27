@@ -1,35 +1,78 @@
-import { access } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import process from "node:process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { hostContract, type DebuggerTarget } from "./contract.js";
+import {
+  debuggerCliSource,
+  exitCodeShimSource,
+  jsDebugFiles,
+  proxyFiles,
+} from "./generated/debugger-engine.js";
+import {
+  DebuggerSupervisor,
+  type DebuggerProcess,
+  type RetainedWorker,
+} from "./lib/debugger-supervisor.js";
 
 const ENGINE_VERSION = "0.26.0";
+let materializedEngine: Promise<string> | undefined;
 
-interface RetainedWorker {
-  dispose(): Promise<void>;
+async function materializeBundledEngine(): Promise<string> {
+  materializedEngine ??= (async () => {
+    const engineRoot = path.join(tmpdir(), "bb-plugin-debugger", ENGINE_VERSION);
+    const distributionDirectory = path.join(engineRoot, "dist");
+    const cliPath = path.join(distributionDirectory, "cli.mjs");
+    const assetsDirectory = path.join(distributionDirectory, "assets");
+    const jsDebugDirectory = path.join(distributionDirectory, "vendor", "js-debug");
+    const proxyDirectory = path.join(distributionDirectory, "proxy");
+    await mkdir(assetsDirectory, { recursive: true });
+    await Promise.all(
+      jsDebugFiles.map(async ([relativePath, content]) => {
+        const destination = path.join(jsDebugDirectory, ...relativePath.split("/"));
+        await mkdir(path.dirname(destination), { recursive: true });
+        await writeFile(destination, Buffer.from(content, "base64"));
+      }),
+    );
+    await Promise.all(
+      proxyFiles.map(async ([relativePath, content]) => {
+        const destination = path.join(proxyDirectory, ...relativePath.split("/"));
+        await mkdir(path.dirname(destination), { recursive: true });
+        await writeFile(destination, Buffer.from(content, "base64"));
+      }),
+    );
+    await Promise.all([
+      writeFile(cliPath, debuggerCliSource, "utf8"),
+      writeFile(
+        path.join(assetsDirectory, "exitcode-shim.cjs"),
+        exitCodeShimSource,
+        "utf8",
+      ),
+    ]);
+    return cliPath;
+  })();
+  return materializedEngine;
 }
 
-interface DebuggerProcess {
+interface McpDebuggerProcess extends DebuggerProcess {
   client: Client;
   transport: StdioClientTransport;
   lease: RetainedWorker;
-  workspacePath: string;
-  enginePath: string;
 }
 
-const processes = new Map<string, Promise<DebuggerProcess>>();
-
-async function startProcess(
+export async function startProcess(
   target: DebuggerTarget,
   retainWorker: () => RetainedWorker,
-): Promise<DebuggerProcess> {
+): Promise<McpDebuggerProcess> {
   await access(target.workspacePath);
-  await access(target.enginePath);
+  const executablePath = target.enginePath ?? (await materializeBundledEngine());
+  await access(executablePath);
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [target.enginePath, "stdio"],
+    args: [executablePath, "stdio"],
     cwd: target.workspacePath,
     env: {
       ...process.env,
@@ -37,6 +80,7 @@ async function startProcess(
     },
     stderr: "pipe",
   });
+  transport.stderr?.on("data", () => undefined);
   const client = new Client({ name: "bb-plugin-debugger", version: "0.1.0" });
   const lease = retainWorker();
   try {
@@ -47,6 +91,13 @@ async function startProcess(
       lease,
       workspacePath: target.workspacePath,
       enginePath: target.enginePath,
+      async close() {
+        try {
+          await client.close();
+        } finally {
+          await lease.dispose();
+        }
+      },
     };
   } catch (error) {
     await lease.dispose();
@@ -55,55 +106,15 @@ async function startProcess(
   }
 }
 
-async function getProcess(
-  target: DebuggerTarget,
-  retainWorker: () => RetainedWorker,
-): Promise<DebuggerProcess> {
-  const existing = processes.get(target.threadId);
-  if (existing !== undefined) {
-    const running = await existing;
-    if (
-      running.workspacePath !== target.workspacePath ||
-      running.enginePath !== target.enginePath
-    ) {
-      await closeProcess(target.threadId);
-    } else {
-      return running;
-    }
-  }
-  const starting = startProcess(target, retainWorker);
-  processes.set(target.threadId, starting);
-  try {
-    return await starting;
-  } catch (error) {
-    processes.delete(target.threadId);
-    throw error;
-  }
-}
-
-async function closeProcess(threadId: string): Promise<boolean> {
-  const starting = processes.get(threadId);
-  if (starting === undefined) return false;
-  processes.delete(threadId);
-  const running = await starting.catch(() => null);
-  if (running === null) return false;
-  try {
-    await running.client.close();
-  } finally {
-    await running.lease.dispose();
-  }
-  return true;
-}
-
-async function closeAll(): Promise<void> {
-  await Promise.all([...processes.keys()].map((threadId) => closeProcess(threadId)));
-}
+const supervisor = new DebuggerSupervisor(startProcess);
 
 export default experimental_defineHostEntry({
   contract: hostContract,
   handlers: {
     async doctor(target, context) {
-      const running = await getProcess(target, () => context.experimental_retainWorker());
+      const running = await supervisor.get(target, () =>
+        context.experimental_retainWorker(),
+      );
       const listed = await running.client.listTools();
       const languages = await running.client.callTool({
         name: "list_supported_languages",
@@ -116,16 +127,22 @@ export default experimental_defineHostEntry({
       };
     },
     async callTool(input, context) {
-      const running = await getProcess(input, () => context.experimental_retainWorker());
-      const result = await running.client.callTool({
-        name: input.tool,
-        arguments: input.arguments,
-      });
+      const running = await supervisor.get(input, () =>
+        context.experimental_retainWorker(),
+      );
+      const result = await running.client.callTool(
+        {
+          name: input.tool,
+          arguments: input.arguments,
+        },
+        undefined,
+        { signal: context.signal },
+      );
       return JSON.parse(JSON.stringify(result)) as unknown;
     },
     async closeThread({ threadId }) {
-      return { closed: await closeProcess(threadId) };
+      return { closed: await supervisor.close(threadId) };
     },
   },
-  dispose: closeAll,
+  dispose: () => supervisor.closeAll(),
 });

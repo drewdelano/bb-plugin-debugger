@@ -20,11 +20,5 @@
     "noEmit": true,
     "skipLibCheck": false
   },
-  "include": [
-    "server.ts",
-    "app.tsx",
-    "components",
-    "lib",
-    "hooks"
-  ]
+  "include": ["**/*.ts"]
 }

@@ -35,7 +35,7 @@ room-cli plugin install .
 
 ## Status
 
-This project is an early proof of concept. JavaScript and TypeScript are the first end-to-end target, followed by .NET and cloud-host provisioning.
+This project is an early proof of concept. JavaScript and TypeScript are the first end-to-end target, followed by .NET.
 
 ## License
 

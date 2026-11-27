@@ -22,7 +22,7 @@
 
 1. The first tool call starts the thread's debugger process lazily.
 2. Later calls reuse the same MCP client and its debug sessions.
-3. Changing the workspace or engine path replaces the process.
+3. Changing the workspace or a test-only engine override replaces the process.
 4. `debugger_close` closes the MCP client and releases the host-worker lease.
 5. Plugin reload, disable, uninstall, daemon shutdown, or host-worker disposal closes every child.
 6. The upstream debugger also receives a fifteen-minute session idle limit.
@@ -35,6 +35,6 @@ Expression evaluation remains powerful because it executes in the launched debug
 
 The upstream debugger redacts credential-shaped values. The plugin additionally caps each agent-visible result at 256 KiB.
 
-## Known limitation
+## Host portability
 
-The pinned debugger executable currently resolves from the plugin installation on the Cloudroom server host. That works for local environments. Cloud environments need a deterministic host-side provisioning step before their first session. The host contract already separates this concern from the agent-tool API.
+The host artifact bundles the pinned debugger engine and can launch itself in an engine-only mode. Cloudroom deploys that artifact to the thread host, so local and cloud environments do not depend on a server-host filesystem path or a separate global install.
