@@ -1,0 +1,48 @@
+{
+  "name": "bb-plugin-debugger",
+  "version": "0.1.0",
+  "description": "Give Cloudroom agents a real step-through debugger.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drewdelano/bb-plugin-debugger.git"
+  },
+  "type": "module",
+  "engines": {
+    "bb": ">=171.0",
+    "bbPluginSdk": ">=0.6.55"
+  },
+  "bb": {
+    "name": "Debugger",
+    "description": "Give Cloudroom agents a real step-through debugger.",
+    "branding": {
+      "icon": "Bug"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts",
+    "skills": [
+      "skills"
+    ]
+  },
+  "scripts": {
+    "build": "room-cli plugin build .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@debugmcp/mcp-debugger": "0.26.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.5.0",
+    "typescript": "^5.7.0",
+    "vitest": "4.1.12"
+  }
+}
